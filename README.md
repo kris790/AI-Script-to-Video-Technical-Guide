@@ -171,9 +171,3 @@ Contributions are what make the open-source community such an amazing place to l
 
 Distributed under the MIT License. See `LICENSE.txt` for more information.
 
-## 📞 Contact
-
-Your Name - [@your_twitter](https://twitter.com/your_twitter) - project@email.com
-
-Project Link: [https://github.com/your-username/scriptai](https://github.com/your-username/scriptai)
-```
