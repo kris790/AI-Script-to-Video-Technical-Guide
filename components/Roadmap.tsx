@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 const roadmapData = [
@@ -7,11 +8,11 @@ const roadmapData = [
     theme: "Establish the project backbone and implement the core script analysis feature.",
     tasks: [
       "Setup Next.js project with Tailwind CSS.",
-      "Setup PostgreSQL database and define initial schemas (Users, Scripts).",
       "Implement user authentication (e.g., using NextAuth or Clerk).",
       "Design and build the script input UI (text area).",
       "Create a Node.js/Express backend endpoint for script submission.",
       "Integrate Gemini API (`gemini-2.5-flash`) for script-to-scene analysis.",
+      "Setup PostgreSQL database and define initial schemas (Users, Scripts).",
     ],
   },
   {
@@ -54,18 +55,6 @@ const roadmapData = [
       "Setup monitoring and logging.",
     ],
   },
-  {
-    week: 5,
-    title: "Advanced Video Features & User Feedback",
-    theme: "Enhance video customization and incorporate early user feedback for refinement.",
-    tasks: [
-      "Allow users to select aspect ratios (16:9, 9:16, 1:1).",
-      "Enable custom branding (upload logo as a watermark) for Pro users.",
-      "Set up a user feedback collection tool (e.g., Canny or a simple form).",
-      "Analyze initial user data to identify popular features and pain points.",
-      "Implement AI-powered scene transitions (e.g., dissolve, slide).",
-    ],
-  },
 ];
 
 const RoadmapCard = ({ week, title, theme, tasks }: (typeof roadmapData)[0]) => (
@@ -86,9 +75,9 @@ const RoadmapCard = ({ week, title, theme, tasks }: (typeof roadmapData)[0]) => 
 
 export const Roadmap = () => (
   <div className="space-y-8">
-    <h2 className="text-2xl font-bold text-white">5-Week MVP+ Implementation Roadmap</h2>
+    <h2 className="text-2xl font-bold text-white">4-Week MVP Implementation Roadmap</h2>
     <p className="text-gray-400">
-      This agile roadmap prioritizes delivering user value quickly, focusing on a functional end-to-end flow before adding extensive features. Each week builds upon the last, culminating in a launch-ready MVP with a plan for immediate post-launch enhancements.
+      This agile roadmap prioritizes delivering user value quickly, focusing on a functional end-to-end flow before adding extensive features. Each week builds upon the last, culminating in a launch-ready MVP.
     </p>
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {roadmapData.map(week => (
