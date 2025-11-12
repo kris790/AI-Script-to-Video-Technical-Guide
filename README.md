@@ -130,8 +130,3 @@ Push to the Branch (git push origin feature/AmazingFeature)
 Open a Pull Request
 📄 License
 Distributed under the MIT License. See LICENSE.txt for more information.
-
-📞 Contact
-Your Name - @your_twitter - project@email.com
-
-Project Link: https://github.com/your-username/scriptai
