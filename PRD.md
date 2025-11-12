@@ -1,4 +1,4 @@
-# Product Requirements Document (PRD): Story Flow Script-to-Video Automation Tool
+# Product Requirements Document (PRD): AI Script-to-Video Automation Tool
 
 ## 1. Project Context
 

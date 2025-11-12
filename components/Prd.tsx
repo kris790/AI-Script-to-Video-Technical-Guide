@@ -33,6 +33,7 @@ export const Prd = () => (
     
     <H3>Script Input & Analysis:</H3>
     <Ul>
+        <li>Users must provide a title for their video project.</li>
         <li>A simple text area for users to paste or write their script.</li>
         <li>AI-powered analysis to automatically break the script down into logical scenes.</li>
         <li>
@@ -83,6 +84,7 @@ export const Prd = () => (
                 </div>
              </div>
         </li>
+        <li><Strong>Watermark Application (FFmpeg):</Strong> For videos created on the free tier, a "Story Flow" watermark will be applied. Pro-tier videos are generated without a watermark, aligning with future plans for custom branding options.</li>
         <li><Strong>Final Render:</Strong> The final output is a 720p MP4 file, encoded with web-friendly settings and stored in cloud storage, ready for preview and download.</li>
     </Ul>
     

@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 const CodeBlock = ({ children }: { children: React.ReactNode }) => (
@@ -38,6 +37,7 @@ CREATE TABLE "projects" (
   "title" TEXT NOT NULL,
   "original_script" TEXT NOT NULL,
   "status" TEXT NOT NULL DEFAULT 'pending', -- pending, processing, complete, failed
+  "watermark_url" TEXT, -- URL for a custom or default watermark. NULL for no watermark.
   "final_video_url" TEXT,
   "created_at" TIMESTAMPTZ DEFAULT now(),
   "updated_at" TIMESTAMPTZ DEFAULT now()
