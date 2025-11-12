@@ -1,129 +1,189 @@
-
 import React from 'react';
 
-const CodeBlock = ({ children }: { children: React.ReactNode }) => (
+const CodeBlock = ({ children, lang = 'json' }: { children: React.ReactNode, lang?: string }) => (
     <pre className="bg-gray-900 rounded-lg p-4 text-sm overflow-x-auto">
-        <code className="language-typescript text-cyan-300">{children}</code>
+        <code className={`language-${lang} text-cyan-300`}>{children}</code>
     </pre>
 );
 
+const Endpoint = ({ method, path, description }: { method: 'POST' | 'GET' | 'PUT' | 'DELETE', path: string, description: string }) => {
+    const methodColors = {
+        'POST': 'bg-green-500/20 text-green-400',
+        'GET': 'bg-blue-500/20 text-blue-400',
+        'PUT': 'bg-yellow-500/20 text-yellow-400',
+        'DELETE': 'bg-red-500/20 text-red-400',
+    };
+    return (
+        <div className="mb-2">
+            <span className={`px-2 py-1 rounded-md text-xs font-bold mr-3 ${methodColors[method]}`}>{method}</span>
+            <code className="text-md font-mono text-white">{path}</code>
+            <p className="text-gray-400 text-sm mt-1 ml-2">{description}</p>
+        </div>
+    );
+};
+
+
 export const ApiStrategy = () => (
     <div className="space-y-8">
-        <h2 className="text-2xl font-bold text-white">Gemini API Integration Strategy</h2>
+        <h2 className="text-2xl font-bold text-white">REST API Architecture Design</h2>
+        {/* FIX: The `<token>` placeholder was being parsed as a JSX element, causing an error. It has been escaped to be treated as plain text. */}
         <p className="text-gray-400">
-            A successful implementation relies on structured, consistent communication with the Gemini APIs. Using the Gemini model family for all AI tasks (analysis, image, TTS, video) simplifies integration and billing.
+            The API is built on Fastify and follows standard RESTful principles. Authentication is handled via JWTs, which must be sent in the `Authorization: Bearer &lt;token&gt;` header for all protected routes.
         </p>
 
-        <div className="space-y-4">
-            <h3 className="text-xl font-bold text-cyan-400">1. Script Analysis: `gemini-2.5-flash`</h3>
-            <p>The goal is to transform a raw script into a structured array of scenes. We enforce a strict JSON output using `responseSchema` for reliable parsing.</p>
-            <CodeBlock>{`
-import { GoogleGenAI, Type } from "@google/genai";
+        {/* --- AUTHENTICATION --- */}
+        <div className="space-y-6">
+            <h3 className="text-xl font-bold text-cyan-400">Authentication Endpoints</h3>
+            <p className="text-gray-400 text-sm">Endpoints for user registration, login, and session verification.</p>
+            
+            <div>
+                <Endpoint method="POST" path="/auth/register" description="Creates a new user account." />
+                <h4 className="font-semibold text-gray-200 mt-2 mb-1">Request Body:</h4>
+                <CodeBlock>{`{
+  "email": "user@example.com",
+  "password": "a_strong_password"
+}`}</CodeBlock>
+                <h4 className="font-semibold text-gray-200 mt-2 mb-1">Response (201 Created):</h4>
+                <CodeBlock>{`{
+  "id": "user-uuid-123",
+  "email": "user@example.com",
+  "plan": "free",
+  "creditsRemaining": 10
+}`}</CodeBlock>
+            </div>
+            
+            <div>
+                <Endpoint method="POST" path="/auth/login" description="Authenticates a user and returns a JWT." />
+                 <h4 className="font-semibold text-gray-200 mt-2 mb-1">Request Body:</h4>
+                <CodeBlock>{`{
+  "email": "user@example.com",
+  "password": "a_strong_password"
+}`}</CodeBlock>
+                <h4 className="font-semibold text-gray-200 mt-2 mb-1">Response (200 OK):</h4>
+                <CodeBlock>{`{
+  "accessToken": "ey...your...jwt"
+}`}</CodeBlock>
+            </div>
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
-const script = "Scene 1: A majestic castle on a hill. Narrator: Once upon a time...";
-
-const response = await ai.models.generateContent({
-  model: "gemini-2.5-flash",
-  contents: \`Analyze this script and break it down into scenes. For each scene, create a detailed visual prompt for an image generator and extract the narrator's text. The visual prompt should be descriptive and cinematic. Script: \${script}\`,
-  config: {
-    responseMimeType: "application/json",
-    responseSchema: {
-      type: Type.OBJECT,
-      properties: {
-        scenes: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.OBJECT,
-            properties: {
-              sceneNumber: { type: Type.INTEGER },
-              visualPrompt: { 
-                type: Type.STRING,
-                description: 'A detailed, vivid description for an image generation model.' 
-              },
-              narration: { 
-                type: Type.STRING,
-                description: 'The exact text for the text-to-speech engine.'
-              },
-            }
-          }
-        }
-      }
-    },
-  },
-});
-
-const sceneData = JSON.parse(response.text);
-// sceneData.scenes will be an array of scene objects
-            `}</CodeBlock>
+            <div>
+                <Endpoint method="GET" path="/auth/me" description="Retrieves the profile of the currently authenticated user." />
+                <h4 className="font-semibold text-gray-200 mt-2 mb-1">Response (200 OK):</h4>
+                <CodeBlock>{`{
+  "id": "user-uuid-123",
+  "email": "user@example.com",
+  "plan": "pro",
+  "creditsRemaining": 485
+}`}</CodeBlock>
+            </div>
         </div>
 
-        <div className="space-y-4">
-            <h3 className="text-xl font-bold text-cyan-400">2. Scene Generation: `gemini-2.5-flash-image`</h3>
-            <p>To maintain visual consistency, we prepend a consistent style prefix to every visual prompt generated in the analysis step.</p>
-            <CodeBlock>{`
-import { GoogleGenAI, Modality } from "@google/genai";
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        {/* --- VIDEOS --- */}
+        <div className="space-y-6">
+            <h3 className="text-xl font-bold text-cyan-400">Video Endpoints (Protected)</h3>
+            <p className="text-gray-400 text-sm">Core endpoints for creating and managing video projects.</p>
+            
+            <div>
+                <Endpoint method="POST" path="/videos" description="Creates a new video project and enqueues it for processing." />
+                <h4 className="font-semibold text-gray-200 mt-2 mb-1">Request Body:</h4>
+                <CodeBlock>{`{
+  "title": "My Awesome Video",
+  "script": "Scene 1: A hero emerges...",
+  "style": "minimalist_flat",
+  "voice": "alloy"
+}`}</CodeBlock>
+                <h4 className="font-semibold text-gray-200 mt-2 mb-1">Response (202 Accepted):</h4>
+                <CodeBlock>{`{
+  "id": "video-uuid-456",
+  "status": "queued",
+  "message": "Video project created and queued for processing."
+}`}</CodeBlock>
+            </div>
 
-const visualStyle = "flat illustration, vibrant colors, minimalist";
-const scenePrompt = sceneData.scenes[0].visualPrompt; // From previous step
+            <div>
+                <Endpoint method="GET" path="/videos" description="Retrieves a list of videos for the authenticated user." />
+                <h4 className="font-semibold text-gray-200 mt-2 mb-1">Response (200 OK):</h4>
+                <CodeBlock>{`[
+  {
+    "id": "video-uuid-456",
+    "title": "My Awesome Video",
+    "status": "processing",
+    "thumbnailUrl": "https://s3...",
+    "createdAt": "2023-10-27T10:00:00Z"
+  }
+]`}</CodeBlock>
+            </div>
 
-const fullPrompt = \`\${visualStyle}, \${scenePrompt}\`;
+            <div>
+                <Endpoint method="GET" path="/videos/:id" description="Retrieves the detailed status for a single video project." />
+                <h4 className="font-semibold text-gray-200 mt-2 mb-1">Response (200 OK):</h4>
+                <CodeBlock>{`{
+  "id": "video-uuid-456",
+  "title": "My Awesome Video",
+  "status": "completed",
+  "videoUrl": "https://s3...",
+  "thumbnailUrl": "https://s3...",
+  "scenes": [
+    { "sceneNumber": 1, "status": "completed", "imageUrl": "..." },
+    { "sceneNumber": 2, "status": "completed", "imageUrl": "..." }
+  ],
+  "createdAt": "2023-10-27T10:00:00Z"
+}`}</CodeBlock>
+            </div>
 
-const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash-image',
-    contents: { parts: [{ text: fullPrompt }] },
-    config: {
-        responseModalities: [Modality.IMAGE],
-    },
-});
+             <div>
+                <Endpoint method="DELETE" path="/videos/:id" description="Deletes a video project and associated assets." />
+                <h4 className="font-semibold text-gray-200 mt-2 mb-1">Response (204 No Content):</h4>
+                <p className="text-gray-400 text-sm">No response body on successful deletion.</p>
+            </div>
 
-const part = response.candidates?.[0]?.content?.parts?.[0];
-if (part?.inlineData) {
-    const base64Image = part.inlineData.data;
-    // Upload this to cloud storage
-}
-            `}</CodeBlock>
         </div>
 
-        <div className="space-y-4">
-            <h3 className="text-xl font-bold text-cyan-400">3. Text-to-Speech: `gemini-2.5-flash-preview-tts`</h3>
-            <p>The narration text from the analysis step is sent directly to the TTS API. We can offer different voices by changing the `voiceName`.</p>
-            <CodeBlock>{`
-import { GoogleGenAI, Modality } from "@google/genai";
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        {/* --- ACCOUNT & BILLING --- */}
+        <div className="space-y-6">
+            <h3 className="text-xl font-bold text-cyan-400">Account & Billing Endpoints (Protected)</h3>
+            <p className="text-gray-400 text-sm">Endpoints for managing user account details and subscriptions.</p>
 
-const narration = sceneData.scenes[0].narration; // From analysis step
-const voice = 'Kore'; // Or 'Puck', 'Charon', etc.
-
-const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash-preview-tts",
-    contents: [{ parts: [{ text: narration }] }],
-    config: {
-        responseModalities: [Modality.AUDIO],
-        speechConfig: {
-            voiceConfig: {
-                prebuiltVoiceConfig: { voiceName: voice },
-            },
-        },
-    },
-});
-
-const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-// Upload base64Audio to cloud storage as an audio file
-            `}</CodeBlock>
+            <div>
+                <Endpoint method="GET" path="/account/profile" description="Gets the user's profile, plan, and credit status." />
+                 <h4 className="font-semibold text-gray-200 mt-2 mb-1">Response (200 OK):</h4>
+                <CodeBlock>{`{
+  "email": "user@example.com",
+  "plan": "pro",
+  "creditsRemaining": 485,
+  "memberSince": "2023-10-01T00:00:00Z"
+}`}</CodeBlock>
+            </div>
+             <div>
+                <Endpoint method="POST" path="/billing/portal" description="Creates and returns a URL for the Stripe Customer Portal." />
+                 <h4 className="font-semibold text-gray-200 mt-2 mb-1">Response (200 OK):</h4>
+                <CodeBlock>{`{
+  "url": "https://billing.stripe.com/p/session/..."
+}`}</CodeBlock>
+            </div>
         </div>
-        
-        <div className="space-y-4">
-            <h3 className="text-xl font-bold text-cyan-400">4. Error Handling & Retries</h3>
-            <p>All API calls should be wrapped in a resilient function that implements an exponential backoff strategy for retries. This handles transient network issues and rate limits gracefully.</p>
+
+        {/* --- ERROR HANDLING --- */}
+        <div className="space-y-6">
+            <h3 className="text-xl font-bold text-cyan-400">Common Status Codes & Error Responses</h3>
+            <p className="text-gray-400 text-sm">The API uses standard HTTP status codes to indicate success or failure.</p>
             <ul className="list-disc list-inside text-gray-300">
-                <li>Wrap API calls in `try...catch` blocks.</li>
-                <li>On failure, check the error type. If it's a rate limit or server error (5xx), schedule a retry.</li>
-                <li>Implement exponential backoff: wait 1s, then 2s, then 4s, etc., before retrying.</li>
-                <li>After a set number of retries (e.g., 3), mark the job as 'failed' in the database and notify the user.</li>
+                <li><code className="text-white">200 OK</code> - Request succeeded.</li>
+                <li><code className="text-white">201 Created</code> - Resource was successfully created.</li>
+                <li><code className="text-white">202 Accepted</code> - Request accepted for processing, but not yet completed.</li>
+                <li><code className="text-white">204 No Content</code> - Request succeeded, but there is no content to return.</li>
+                <li><code className="text-white">400 Bad Request</code> - The server cannot process the request due to a client error (e.g., malformed JSON).</li>
+                <li><code className="text-white">401 Unauthorized</code> - Authentication is required and has failed or has not been provided.</li>
+                <li><code className="text-white">403 Forbidden</code> - The authenticated user does not have permission to access the resource.</li>
+                <li><code className="text-white">404 Not Found</code> - The requested resource could not be found.</li>
+                <li><code className="text-white">500 Internal Server Error</code> - An unexpected error occurred on the server.</li>
             </ul>
+             <h4 className="font-semibold text-gray-200 mt-4 mb-1">Example Error Response (400 Bad Request):</h4>
+            <CodeBlock>{`{
+  "statusCode": 400,
+  "error": "Bad Request",
+  "message": "Request body must have a 'title' property of type string."
+}`}</CodeBlock>
         </div>
+
     </div>
 );

@@ -10,207 +10,144 @@ export const CodeSamples = () => (
     <div className="space-y-8">
         <h2 className="text-2xl font-bold text-white">Code Samples & Snippets</h2>
         <p className="text-gray-400">
-            These TypeScript examples demonstrate core logic for the backend worker processes and frontend interactions.
+            These TypeScript examples demonstrate core logic for the new backend stack: Fastify for the API, BullMQ for job processing, and interacting with the Replicate API.
         </p>
 
         <div>
-            <h3 className="text-xl font-bold text-cyan-400 mb-2">Video Processing Pipeline (Bull Queue Worker)</h3>
-            <p className="text-gray-400 mb-4">This shows how a worker might process the main video job, orchestrating the various sub-tasks.</p>
+            <h3 className="text-xl font-bold text-cyan-400 mb-2">Fastify API Endpoint for Creating a Video</h3>
+            <p className="text-gray-400 mb-4">This shows a protected Fastify route that validates user input, creates a video record using Prisma, and enqueues a job in BullMQ.</p>
             <CodeBlock>{`
-import { Job, Queue } from 'bull';
-import { GoogleGenAI, Type } from "@google/genai";
-// Assume db functions and aiService are defined elsewhere
+import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { PrismaClient } from '@prisma/client';
+import { Queue } from 'bullmq';
 
-const sceneQueue = new Queue('scene-generation');
+const prisma = new PrismaClient();
+const videoQueue = new Queue('video-processing');
 
-// Main video job processor
-async function processVideoJob(job: Job) {
-  const { projectId, script } = job.data;
-  
-  try {
-    // 1. Analyze script
-    await db.projects.update({ where: { id: projectId }, data: { status: 'analyzing' } });
-    const analysisResult = await aiService.analyzeScript(script); // Uses gemini-2.5-flash
-    
-    // 2. Create scene records and queue sub-jobs
-    await db.projects.update({ where: { id: projectId }, data: { status: 'generating_assets' } });
-    for (const scene of analysisResult.scenes) {
-      const sceneRecord = await db.scenes.create({
-        data: { projectId, ...scene },
-      });
-      // Add a job for each scene to be processed
-      await sceneQueue.add({ sceneId: sceneRecord.id });
-    }
+async function videoRoutes(fastify: FastifyInstance) {
+  // Assumes a 'preHandler' hook has already verified the JWT and attached user to request
+  fastify.post('/videos', async (request: FastifyRequest, reply: FastifyReply) => {
+    const { title, script } = request.body as { title: string, script: string };
+    const user = request.user; // from auth middleware
 
-    // A separate listener would check when all scenes are 'complete' 
-    // and then queue a final 'stitching' job.
+    // 1. Check user credits (not shown)
 
-  } catch (error) {
-    await db.projects.update({ where: { id: projectId }, data: { status: 'failed' } });
-    console.error(\`Failed video job for project \${projectId}:\`, error);
-  }
-}
-            `}</CodeBlock>
-        </div>
-
-        <div>
-            <h3 className="text-xl font-bold text-cyan-400 mb-2">Scene Generation Worker</h3>
-            <p className="text-gray-400 mb-4">This worker handles a single scene, generating assets in parallel.</p>
-            <CodeBlock>{`
-// Scene generation processor
-async function processSceneJob(job: Job) {
-  const { sceneId } = job.data;
-  
-  await db.scenes.update({ where: { id: sceneId }, data: { status: 'generating' } });
-  const scene = await db.scenes.findUnique({ where: { id: sceneId } });
-
-  try {
-    // Generate image and audio in parallel
-    const [imageUrl, audioUrl] = await Promise.all([
-      aiService.generateImage(scene.visualPrompt), // gemini-2.5-flash-image
-      aiService.generateAudio(scene.narrationText) // gemini-2.5-flash-preview-tts
-    ]);
-
-    // Generate video clip
-    const videoClipUrl = await aiService.generateVideoClip(imageUrl, audioUrl); // veo-3.1-fast-generate-preview
-    
-    await db.scenes.update({
-      where: { id: sceneId },
+    // 2. Create video project in DB
+    const video = await prisma.video.create({
       data: {
-        status: 'complete',
-        imageUrl,
-        audioUrl,
-        videoClipUrl,
+        title,
+        script,
+        userId: user.id,
+        status: 'queued',
       },
     });
 
-  } catch (error) {
-    await db.scenes.update({ where: { id: sceneId }, data: { status: 'failed' } });
-    console.error(\`Failed scene job \${sceneId}:\`, error);
-  }
+    // 3. Add job to queue
+    await videoQueue.add('process-video', { videoId: video.id });
+
+    reply.code(202).send({
+      videoId: video.id,
+      status: 'queued',
+      message: 'Video project created and queued for processing.',
+    });
+  });
 }
             `}</CodeBlock>
         </div>
 
         <div>
-            <h3 className="text-xl font-bold text-cyan-400 mb-2">Resilient API Caller with Exponential Backoff</h3>
-            <p className="text-gray-400 mb-4">A wrapper function to make any API call more robust.</p>
+            <h3 className="text-xl font-bold text-cyan-400 mb-2">BullMQ Worker for Video Orchestration</h3>
+            <p className="text-gray-400 mb-4">This worker manages the multi-step process for a single video, calling different AI services in sequence and parallel.</p>
             <CodeBlock>{`
-async function resilientCall<T,>(
-  apiFunction: () => Promise<T>,
-  retries = 3,
-  delay = 1000
-): Promise<T> {
-  try {
-    return await apiFunction();
-  } catch (error: any) {
-    if (retries > 0 && (error.status >= 500 || error.status === 429)) {
-      console.log(\`API call failed. Retrying in \${delay}ms...\`);
-      await new Promise(res => setTimeout(res, delay));
-      return resilientCall(apiFunction, retries - 1, delay * 2); // Exponential backoff
-    } else {
-      throw error; // Rethrow if not a retryable error or retries exhausted
-    }
-  }
-}
+import { Job, Worker } from 'bullmq';
+import { prisma } from './prisma-client';
+import * as aiService from './ai-service'; // Abstracted AI calls
 
-// Usage:
-// const sceneData = await resilientCall(() => aiService.analyzeScript(script));
+const worker = new Worker('video-processing', async (job: Job) => {
+  const { videoId } = job.data;
+
+  try {
+    // 1. Analyze script to get scenes
+    const video = await prisma.video.findUnique({ where: { id: videoId } });
+    await prisma.video.update({ where: { id: videoId }, data: { status: 'processing' } });
+    
+    const scenesData = await aiService.analyzeScript(video.script); // Calls GPT-4o-mini
+    
+    // 2. Create scene records in DB
+    // ... code to save scenes from scenesData to the DB ...
+
+    // 3. Process each scene in parallel (generate image and audio)
+    const sceneProcessingPromises = savedScenes.map(async (scene) => {
+      const [imageUrl, audioUrl] = await Promise.all([
+        aiService.generateImage(scene.scriptText), // DALL-E 3
+        aiService.generateAudio(scene.scriptText), // ElevenLabs
+      ]);
+      const videoClipUrl = await aiService.createVideoClip(imageUrl, audioUrl); // Replicate API
+      
+      await prisma.scene.update({ 
+        where: { id: scene.id }, 
+        data: { imageUrl, audioUrl, videoClipUrl, status: 'completed' }
+      });
+    });
+
+    await Promise.all(sceneProcessingPromises);
+    
+    // 4. Stitch clips together (another job could be enqueued for this)
+    // ... final concatenation logic ...
+
+    await prisma.video.update({ where: { id: videoId }, data: { status: 'completed' } });
+
+  } catch (error) {
+    await prisma.video.update({ 
+      where: { id: videoId }, 
+      data: { status: 'failed', errorMessage: error.message }
+    });
+    throw error;
+  }
+});
             `}</CodeBlock>
         </div>
 
         <div>
-            <h3 className="text-xl font-bold text-cyan-400 mb-2">Frontend: Drag-and-Drop Scene Reordering (dnd-kit)</h3>
-            <p className="text-gray-400 mb-4">This React snippet shows a basic implementation for reordering scenes using the `@dnd-kit` library. This would be part of the editing interface.</p>
-            <CodeBlock language="typescript">{`
-import React, { useState } from 'react';
-import {
-  DndContext,
-  closestCenter,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent,
-} from '@dnd-kit/core';
-import {
-  arrayMove,
-  SortableContext,
-  verticalListSortingStrategy,
-  useSortable,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
+            <h3 className="text-xl font-bold text-cyan-400 mb-2">Calling the Replicate API for Video Generation</h3>
+            <p className="text-gray-400 mb-4">An example of how to start a job on Replicate and poll for its completion.</p>
+            <CodeBlock>{`
+import Replicate from 'replicate';
 
-// Mock scene type
-type Scene = { id: number; text: string };
+const replicate = new Replicate({
+  auth: process.env.REPLICATE_API_TOKEN,
+});
 
-// 1. Sortable Item Component
-const SortableSceneItem = ({ scene }: { scene: Scene }) => {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-  } = useSortable({ id: scene.id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    padding: '16px',
-    margin: '4px 0',
-    backgroundColor: '#374151', // gray-700
-    border: '1px solid #4B5563', // gray-600
-    borderRadius: '8px',
-    display: 'flex',
-    alignItems: 'center',
-    cursor: 'grab',
+async function createVideoClip(imageUrl: string, audioUrl: string): Promise<string> {
+  const model = "another-ai-artist/zeroscope-v2-xl:9f747673945c62801b13b84701c783929c0ee784e4748ec062204894dda1a351";
+  
+  const input = {
+    prompt: "A high-quality animation of the provided image",
+    init_image: imageUrl,
+    init_audio: audioUrl,
+    // ... other model parameters
   };
 
-  return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      <span className="font-bold mr-4 text-cyan-400">#{scene.id}</span>
-      <p>{scene.text}</p>
-    </div>
-  );
-};
+  // Start the prediction
+  const prediction = await replicate.predictions.create({
+    version: model.split(':')[1],
+    input,
+    // You can also use a webhook to be notified when the prediction is complete
+  });
 
-// 2. Main Editor Component
-export const SceneEditor = () => {
-  const [scenes, setScenes] = useState<Scene[]>([
-    { id: 1, text: 'A majestic castle on a hill.' },
-    { id: 2, text: 'A dragon flies over the mountains.' },
-    { id: 3, text: 'The hero enters a dark forest.' },
-    { id: 4, text: 'A final confrontation with the villain.' },
-  ]);
+  // Poll for the result (in a real app, a webhook is better)
+  let finalPrediction = await replicate.predictions.get(prediction.id);
+  while (['starting', 'processing'].includes(finalPrediction.status)) {
+    await new Promise(res => setTimeout(res, 2000));
+    finalPrediction = await replicate.predictions.get(prediction.id);
+  }
 
-  const sensors = useSensors(
-    useSensor(PointerSensor)
-  );
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-
-    if (over && active.id !== over.id) {
-      setScenes((items) => {
-        const oldIndex = items.findIndex((item) => item.id === active.id);
-        const newIndex = items.findIndex((item) => item.id === over.id);
-        return arrayMove(items, oldIndex, newIndex);
-      });
-    }
-  };
-
-  return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={closestCenter}
-      onDragEnd={handleDragEnd}
-    >
-      <SortableContext items={scenes} strategy={verticalListSortingStrategy}>
-        {scenes.map(scene => <SortableSceneItem key={scene.id} scene={scene} />)}
-      </SortableContext>
-    </DndContext>
-  );
-};
+  if (finalPrediction.status === 'succeeded') {
+    return finalPrediction.output; // The URL of the generated video clip
+  } else {
+    throw new Error(\`Replicate prediction failed: \${finalPrediction.error}\`);
+  }
+}
             `}</CodeBlock>
         </div>
     </div>

@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 const FlowStep = ({ number, title, description, isAi }: { number: number; title: string; description: string; isAi?: boolean }) => (
@@ -17,66 +16,62 @@ export const Architecture = () => (
     <div className="space-y-8">
         <h2 className="text-2xl font-bold text-white">System Architecture Overview</h2>
         <p className="text-gray-400">
-            This architecture is designed for scalability and asynchronous processing, which is crucial for handling time-consuming AI generation tasks without blocking the user interface. It decouples the frontend from the heavy-lifting backend workers.
+            This architecture utilizes a modern, decoupled stack designed for scalability and resilience. The frontend is separated from the backend API, and a robust job queue manages the complex, multi-step AI processing pipeline asynchronously.
         </p>
 
         <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-6 space-y-4">
-            <h3 className="text-xl font-bold text-cyan-400">Components</h3>
+            <h3 className="text-xl font-bold text-cyan-400">Core Components</h3>
             <ul className="grid grid-cols-1 md:grid-cols-2 gap-4 list-disc list-inside">
                 <li><strong>Frontend:</strong> Next.js on Vercel</li>
-                <li><strong>Backend API:</strong> Node.js/Express</li>
-                <li><strong>Database:</strong> PostgreSQL</li>
-                <li><strong>Job Queue:</strong> Redis + Bull Queue</li>
-                <li><strong>AI Services:</strong> Google Gemini API Suite</li>
-                <li><strong>Storage:</strong> Cloud Storage (e.g., AWS S3, Google Cloud Storage)</li>
+                <li><strong>Backend API:</strong> Fastify (Node.js) on Railway/Render</li>
+                <li><strong>Database:</strong> PostgreSQL with Prisma ORM</li>
+                <li><strong>Job Queue:</strong> Redis + BullMQ</li>
+                <li><strong>Video Processing:</strong> Replicate API (Serverless)</li>
+                <li><strong>AI Services:</strong> OpenAI, ElevenLabs, DALL-E 3</li>
+                <li><strong>Storage:</strong> AWS S3 for assets</li>
+                <li><strong>Monitoring:</strong> Sentry & LogTail</li>
             </ul>
         </div>
 
         <div>
-            <h3 className="text-xl font-bold text-white mb-6">AI Pipeline Flow</h3>
+            <h3 className="text-xl font-bold text-white mb-6">AI Video Generation Pipeline</h3>
             <div className="space-y-6 border-l-2 border-dashed border-gray-600 ml-5 pl-8">
                 <FlowStep
                     number={1}
-                    title="Script Submission (Frontend)"
-                    description="User inputs their script and selects style options in the React app."
+                    title="User Submits Script (Frontend -> API)"
+                    description="The Next.js app sends the script and user options to the Fastify API, which creates a 'video' record and enqueues a master processing job."
                 />
                 <FlowStep
                     number={2}
-                    title="Job Creation (Backend API)"
-                    description="The Node.js server receives the request, creates a new video project in the database, and adds a 'start-video-job' task to the Redis queue."
+                    title="Script Analysis (BullMQ Worker -> GPT-4o-mini)"
+                    description="A worker picks up the job, calls the OpenAI API to break the script into scenes, and saves the structured scene data to the database."
+                    isAi
                 />
                 <FlowStep
                     number={3}
-                    title="Script Analysis (Worker)"
-                    description="A worker process picks up the job and sends the script to the Gemini API for scene breakdown, generating structured JSON data."
-                    isAi
+                    title="Parallel Asset Generation (BullMQ Workers)"
+                    description="The master job enqueues parallel jobs for each scene: one for image generation (DALL-E 3) and one for audio generation (ElevenLabs)."
                 />
                 <FlowStep
                     number={4}
-                    title="Parallel Asset Generation (Worker)"
-                    description="The worker creates parallel sub-jobs for each scene: one for image generation and one for TTS. This allows for faster processing."
-                />
-                <FlowStep
-                    number={5}
-                    title="Image & Audio Generation (Worker -> Gemini)"
-                    description="Sub-workers call Gemini Image and TTS APIs, then upload the resulting assets (images, audio files) to cloud storage, saving the URLs in the database."
-                    isAi
+                    title="Asset Storage (Workers -> S3)"
+                    description="As image and audio files are generated, workers upload them to an AWS S3 bucket and update the scene records with their URLs."
                 />
                  <FlowStep
-                    number={6}
-                    title="Video Scene Assembly (Worker -> Gemini)"
-                    description="Once all assets for a scene are ready, a job is sent to Gemini's Veo model to create a short video clip from the image and audio."
+                    number={5}
+                    title="Scene Video Assembly (Worker -> Replicate)"
+                    description="Once a scene's image and audio are ready, a new job calls the Replicate API, providing the asset URLs to generate a short video clip with Ken Burns effects."
                     isAi
+                />
+                <FlowStep
+                    number={6}
+                    title="Final Concatenation (Worker -> FFmpeg)"
+                    description="After all scene clips are generated via Replicate, a final job downloads them, stitches them together, mixes in background music using FFmpeg, and uploads the final video to S3."
                 />
                 <FlowStep
                     number={7}
-                    title="Final Video Concatenation (Worker)"
-                    description="After all scene clips are generated, a final worker job stitches them together (using FFmpeg or a similar tool) with background music into the final video."
-                />
-                <FlowStep
-                    number={8}
-                    title="Notification & Delivery (Backend -> Frontend)"
-                    description="The worker updates the video status to 'complete' in the database. The frontend polls for this status and, once complete, displays the final video to the user for preview and download."
+                    title="Update & Notify (API -> Frontend)"
+                    description="The API updates the video status to 'complete'. The frontend, which has been polling or connected via WebSocket, shows the final video is ready for download."
                 />
             </div>
         </div>
