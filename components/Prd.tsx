@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 const H2 = ({ children }: { children: React.ReactNode }) => <h2 className="text-2xl font-bold text-white mt-8 mb-4">{children}</h2>;
@@ -6,6 +5,8 @@ const H3 = ({ children }: { children: React.ReactNode }) => <h3 className="text-
 const P = ({ children }: { children: React.ReactNode }) => <p className="text-gray-400 mb-4">{children}</p>;
 const Ul = ({ children }: { children: React.ReactNode }) => <ul className="list-disc list-inside space-y-2 text-gray-300 mb-4">{children}</ul>;
 const Strong = ({ children }: { children: React.ReactNode }) => <strong className="font-semibold text-gray-200">{children}</strong>;
+const Code = ({ children }: { children: React.ReactNode }) => <code className="text-xs bg-gray-700 p-1 rounded font-mono">{children}</code>;
+
 
 export const Prd = () => (
   <div className="prose prose-invert max-w-none">
@@ -34,6 +35,13 @@ export const Prd = () => (
     <Ul>
         <li>A simple text area for users to paste or write their script.</li>
         <li>AI-powered analysis to automatically break the script down into logical scenes.</li>
+        <li>
+            <Strong>Input Validation:</Strong>
+            <ul className="list-['-_'] list-inside pl-4 mt-2 space-y-1">
+                <li><Strong>Length Constraints:</Strong> The script must not be empty and should be limited to a maximum length (e.g., 5,000 characters for the MVP) to manage processing time and cost.</li>
+                <li><Strong>Content Moderation:</Strong> Before sending the script to the AI for analysis, a basic check for harmful or inappropriate content will be performed to ensure safety and compliance.</li>
+            </ul>
+        </li>
     </Ul>
 
     <H3>Automated Scene Generation:</H3>
@@ -49,11 +57,33 @@ export const Prd = () => (
     </Ul>
 
     <H3>Video Assembly & Finalization:</H3>
+    <P>This multi-step process is handled by the backend worker.</P>
     <Ul>
-        <li><Strong>Scene Clip Generation:</Strong> For each scene, the generated image and narration audio are combined into a short video clip using Gemini's Veo model. A prompt like "Create a 5-second video from this image with a subtle zoom-in effect" adds motion.</li>
-        <li><Strong>Clip Concatenation:</Strong> Once all scene clips are generated, a backend process using a library like FFmpeg will stitch them together in the correct order.</li>
-        <li><Strong>Background Music:</Strong> A selected royalty-free music track is overlaid onto the full video, with its volume lowered to not overpower the narration.</li>
-        <li><Strong>Final Render:</Strong> The final output is a 720p MP4 file, ready for preview and download.</li>
+        <li>
+            <Strong>Scene Clip Generation (Gemini Veo):</Strong> For each scene, the generated image asset is passed to the Gemini Veo model with the narration audio. The model is prompted to add subtle camera movements to the static image, creating a dynamic video clip that matches the audio's duration. This creates a more engaging "Ken Burns" style effect instead of a static slideshow. The prompts will be dynamically adapted to the scene's content, following these patterns:
+            <ul className="list-['-_'] list-inside pl-4 mt-2 space-y-1">
+                <li><em className="text-gray-400">Example (Slow Zoom In): "Animate this image with a gentle, slow zoom-in effect on the central subject over 5 seconds. The final clip duration must match the provided audio."</em></li>
+                <li><em className="text-gray-400">Example (Cinematic Pan): "Create a slow, cinematic pan from left to right across this landscape image over a 6-second duration."</em></li>
+                <li><em className="text-gray-400">Example (Ken Burns Effect): "Apply a subtle Ken Burns effect, slowly zooming in on the character's face while panning slightly upwards over 7 seconds."</em></li>
+                <li><em className="text-gray-400">Example (Reveal/Zoom Out): "Start with a close-up on the book on the table, then slowly zoom out to reveal the entire cozy library scene over 6 seconds."</em></li>
+            </ul>
+        </li>
+        <li><Strong>Clip Concatenation (FFmpeg):</Strong> After all individual scene clips are generated, a final worker job uses FFmpeg to concatenate them sequentially into a single video stream.</li>
+        <li>
+            <Strong>Audio Mixing & Overlay (FFmpeg):</Strong> The same FFmpeg process will overlay a selected background music track. This is achieved using FFmpeg's powerful <Code>filter_complex</Code> argument to precisely manage audio levels.
+             <div className="my-2 space-y-2 text-gray-400 border-l-2 border-gray-600 pl-4">
+                <div><Strong>Specific Command:</Strong> The core of the command will be: <Code>-filter_complex "[0:a]volume=1.0[a0];[1:a]volume=0.15[a1];[a0][a1]amix=inputs=2:duration=longest"</Code></div>
+                <div>
+                    <Strong>Parameter Breakdown:</Strong>
+                     <ul className="list-['--'] list-inside pl-4 mt-1 space-y-1">
+                        <li><Code>[0:a]volume=1.0[a0]</Code>: Takes the first audio input (the narration from the video clips) and sets its volume to 100% (<Code>1.0</Code>). It's labeled <Code>[a0]</Code>.</li>
+                        <li><Code>[1:a]volume=0.15[a1]</Code>: Takes the second audio input (the background music track) and lowers its volume to 15% (<Code>0.15</Code>). It's labeled <Code>[a1]</Code>.</li>
+                        <li><Code>[a0][a1]amix=inputs=2...</Code>: The <Code>amix</Code> (audio mix) filter combines the <Code>[a0]</Code> and <Code>[a1]</Code> streams into a single output track, ensuring the narration is clearly audible over the music.</li>
+                    </ul>
+                </div>
+             </div>
+        </li>
+        <li><Strong>Final Render:</Strong> The final output is a 720p MP4 file, encoded with web-friendly settings and stored in cloud storage, ready for preview and download.</li>
     </Ul>
     
     <H3>Editing & Preview:</H3>
