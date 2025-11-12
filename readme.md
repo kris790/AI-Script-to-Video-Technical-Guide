@@ -1,17 +1,17 @@
-# ScriptAI: AI-Powered Script-to-Video Automation
+# Story Flow: AI-Powered Script-to-Video Automation
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Node Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen)
 ![Next.js](https://img.shields.io/badge/Next.js-14-black)
 ![Status](https://img.shields.io/badge/status-In%20Development-yellow)
 
-Transform written scripts into professional animated videos with AI. ScriptAI automates the entire video creation process—from scene generation and voiceovers to final assembly—making high-quality video content accessible to everyone.
+Transform written scripts into professional animated videos with AI. Story Flow automates the entire video creation process—from scene generation and voiceovers to final assembly—making high-quality video content accessible to everyone.
 
 ## 📖 Overview
 
-ScriptAI is built for content creators, marketers, educators, and small business owners who need to produce engaging video content without the time, cost, or technical skills of traditional video production. By leveraging state-of-the-art AI models for script analysis, image generation, and text-to-speech, our platform turns a simple text script into a polished, animated video in minutes.
+Story Flow is built for content creators, marketers, educators, and small business owners who need to produce engaging video content without the time, cost, or technical skills of traditional video production. By leveraging state-of-the-art AI models for script analysis, image generation, and text-to-speech, our platform turns a simple text script into a polished, animated video in minutes.
 
-This project follows a "PRD-First" methodology. You can view the complete Product Requirements Document [here](./docs/PRD.md).
+This project follows a "PRD-First" methodology. You can view the complete Product Requirements Document [here](./PRD.md).
 
 ## ✨ Key Features (MVP)
 
@@ -78,8 +78,8 @@ To get a local copy up and running, follow these simple steps.
 
 1.  **Clone the repository**
     ```bash
-    git clone https://github.com/your-username/scriptai.git
-    cd scriptai
+    git clone https://github.com/your-username/story-flow.git
+    cd story-flow
     ```
 
 2.  **Install dependencies**
@@ -174,4 +174,4 @@ Distributed under the MIT License. See `LICENSE.txt` for more information.
 
 Your Name - [@your_twitter](https://twitter.com/your_twitter) - project@email.com
 
-Project Link: [https://github.com/your-username/scriptai](https://github.com/your-username/scriptai)
+Project Link: [https://github.com/your-username/story-flow](https://github.com/your-username/story-flow)
